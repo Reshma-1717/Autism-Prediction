@@ -1,64 +1,116 @@
-Autism Prediction using Machine Learning
-Project Overview
+# Autism Spectrum Disorder (ASD) Prediction using Machine Learning
 
-This project focuses on predicting Autism Spectrum Disorder (ASD) using machine learning techniques. It analyzes behavioral screening data and demographic features to provide early autism risk prediction, supporting timely intervention.
+A machine learning project that predicts the likelihood of Autism Spectrum Disorder (ASD) from behavioral screening questionnaire responses and demographic/medical data, using classical ML classifiers (Decision Tree, Random Forest, XGBoost) with class-imbalance handling via SMOTE.
 
-Technologies Used
+## Project Structure
 
-Python
+```
+Autism-Prediction-main/
+├── README.md
+├── data/
+│   └── train.csv                                       # Screening dataset (800 records)
+├── notebooks/
+│   └── Autism_Prediction_using_Machine_Learning.ipynb   # Full EDA + modeling pipeline
+└── reports/
+    └── Autism_Prediction.pdf                            # Project write-up / documentation
+```
 
-Jupyter Notebook
+## Problem Statement
 
-Pandas, NumPy
+Early screening for autism is typically done through structured questionnaires (such as the AQ-10). This project uses the responses to a 10-question behavioral screening test, together with demographic and medical history features, to build a binary classifier that predicts whether an individual is likely to be diagnosed with ASD (`Class/ASD` = 1) or not (`Class/ASD` = 0).
 
-Scikit-learn
+## Dataset
 
-XGBoost
+`data/train.csv` contains **800 records** and **21 columns**:
 
-Matplotlib, Seaborn
+| Feature group | Columns |
+|---|---|
+| Screening responses | `A1_Score` – `A10_Score` (binary answers to the AQ-10 questionnaire) |
+| Demographics | `age`, `gender`, `ethnicity`, `contry_of_res` |
+| Medical / behavioral history | `jaundice` (born with jaundice), `austim` (family history of autism), `used_app_before` |
+| Screening result | `result` (continuous score derived from the questionnaire), `age_desc`, `relation` (who completed the test) |
+| Identifier | `ID` |
+| Target | `Class/ASD` (0 = No ASD, 1 = ASD) |
 
-SMOTE (Imbalanced-learn)
+**Class distribution:** 639 negative vs 161 positive cases — a notably imbalanced dataset (~80/20 split), which motivates the use of SMOTE during training.
 
-Dataset
+## Methodology
 
-The project uses a structured dataset containing:
+The notebook (`notebooks/Autism_Prediction_using_Machine_Learning.ipynb`) follows this pipeline:
 
-Behavioral screening scores (A1–A10)
+1. **Data Cleaning**
+   - Dropped uninformative columns (`ID`, `age_desc`)
+   - Fixed inconsistent category labels (e.g. merging `Hong Kong` → `China`, `AmericanSamoa` → `United States` in `contry_of_res`)
+   - Consolidated rare/ambiguous categories in `ethnicity` and `relation` into an `Others` bucket
+   - Cast `age` to integer type
 
-Demographic details such as age, gender, ethnicity
+2. **Exploratory Data Analysis (EDA)**
+   - Distribution plots (histograms, KDE) for `age` and `result`
+   - Box plots and the IQR method to detect outliers in `age` and `result`
+   - Count plots for every categorical feature and the target class
+   - Correlation heatmap across all encoded features
 
-Medical history features like jaundice and family history of autism
+3. **Preprocessing**
+   - Label encoding of all categorical/object columns (encoders saved for reuse)
+   - Outlier treatment: values outside the IQR bounds for `age` and `result` replaced with the column median
+   - Train/test split (80/20, stratified via `random_state=42`)
+   - **SMOTE** oversampling applied only to the training set to balance the two classes (515/515 after resampling)
 
-Methodology
+4. **Modeling**
+   - Baseline 5-fold cross-validation comparing three classifiers:
+     - Decision Tree
+     - Random Forest
+     - XGBoost
+   - Hyperparameter tuning for all three models using `RandomizedSearchCV` (20 iterations, 5-fold CV)
+   - Best model selected by cross-validation accuracy and evaluated on the held-out test set
 
-Data preprocessing (label encoding, outlier handling)
+## Results
 
-Handling class imbalance using SMOTE
+**Baseline 5-fold CV accuracy (default parameters):**
 
-Exploratory Data Analysis (EDA)
+| Model | CV Accuracy |
+|---|---|
+| Decision Tree | 0.86 |
+| Random Forest | 0.92 |
+| XGBoost | 0.90 |
 
-Model training using Decision Tree, Random Forest, and XGBoost
+**After hyperparameter tuning**, the best model selected was a tuned **Random Forest** (`bootstrap=False, max_depth=20, n_estimators=50`) with a cross-validation accuracy of **0.93**.
 
-Hyperparameter tuning and cross-validation
+**Final test set performance (160 held-out samples):**
 
-Performance evaluation using accuracy, precision, recall, and F1-score
+| Metric | Value |
+|---|---|
+| Accuracy | 0.82 |
+| Precision (Class 0 / Class 1) | 0.89 / 0.59 |
+| Recall (Class 0 / Class 1) | 0.87 / 0.64 |
+| F1-score (Class 0 / Class 1) | 0.88 / 0.61 |
 
-Results
+The model performs strongly on the majority (Non-ASD) class, while precision/recall on the minority (ASD) class is more modest — a common outcome given the original class imbalance and the relatively small number of positive cases in the test set.
 
-Among all models, XGBoost achieved the best performance with high accuracy and balanced prediction for both ASD and Non-ASD classes.
+## Technologies Used
 
-Files Included
+- Python
+- Jupyter Notebook
+- Pandas, NumPy
+- Scikit-learn (Decision Tree, Random Forest, RandomizedSearchCV, metrics)
+- XGBoost
+- imbalanced-learn (SMOTE)
+- Matplotlib, Seaborn
 
-Autism_Prediction.ipynb – Main implementation code
+## How to Run
 
-train.csv – Dataset
+1. Install dependencies:
+   ```bash
+   pip install pandas numpy matplotlib seaborn scikit-learn xgboost imbalanced-learn
+   ```
+2. Open `notebooks/Autism_Prediction_using_Machine_Learning.ipynb` in Jupyter/Colab.
+3. Update the data path if needed (the notebook reads from `/content/train.csv`, a Colab path — point it to `data/train.csv` if running locally).
+4. Run all cells to reproduce EDA, preprocessing, model training, and evaluation.
 
-best_model.pkl – Trained model
+Running the full notebook also produces two reusable artifacts (not included in this repo folder, but generated on execution):
+- `best_model.pkl` – the trained, tuned best-performing model
+- `encoders.pkl` – the fitted label encoders for categorical columns, needed to preprocess new inference data consistently
 
-encoders.pkl – Saved label encoders
+## Conclusion
 
-Autism_Prediction.pdf – Project documentation
-
-Conclusion
-
-This project demonstrates how machine learning can be effectively used for early autism screening using structured data. The model can serve as a foundation for building accessible and scalable healthcare screening tools.
+This project demonstrates a full applied ML workflow for a healthcare screening use case: cleaning noisy real-world survey data, addressing class imbalance with SMOTE, comparing multiple tree-based models, and tuning the best candidate. The resulting Random Forest model can serve as a starting point for a lightweight, accessible ASD pre-screening tool, with the caveat that further work on minority-class recall/precision would be valuable before any real-world deployment.
